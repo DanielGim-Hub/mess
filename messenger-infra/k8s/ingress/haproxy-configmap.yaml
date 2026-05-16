@@ -1,0 +1,35 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: haproxy-config
+  namespace: istio-system
+data:
+  haproxy.cfg: |
+    global
+      maxconn 4096
+      daemon
+
+    defaults
+      mode http
+      timeout connect 5s
+      timeout client 30s
+      timeout server 30s
+      option httpchk GET /healthz
+
+    frontend https_frontend
+      bind *:443
+      default_backend k8s_ingress
+
+    frontend wss_frontend
+      bind *:8443
+      default_backend k8s_ingress_wss
+
+    backend k8s_ingress
+      balance roundrobin
+      server node1 192.168.1.101:443 check
+      server node2 192.168.1.102:443 check
+
+    backend k8s_ingress_wss
+      balance roundrobin
+      server node1 192.168.1.101:8443 check
+      server node2 192.168.1.102:8443 check

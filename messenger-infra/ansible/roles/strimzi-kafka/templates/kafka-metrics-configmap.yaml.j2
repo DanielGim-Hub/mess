@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kafka-metrics
+  namespace: {{ strimzi_namespace }}
+data:
+  kafka-metrics-config.yml: |
+    lowercaseOutputName: true
+    rules:
+      - pattern: "kafka.server<type=(.+), name=(.+)PerSec\\w*><>Count"
+        name: "kafka_server_$1_$2_total"
+      - pattern: "kafka.server<type=(.+), name=(.+)PerSec\\w*, topic=(.+)><>Count"
+        name: "kafka_server_$1_$2_total"
+        labels:
+          topic: "$3"

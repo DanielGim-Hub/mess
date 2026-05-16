@@ -1,0 +1,117 @@
+services:
+  # ─── Databases ─────────────────────────────────────────────────────────────
+  chat-db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: chat_user
+      POSTGRES_PASSWORD: chat_pass
+      POSTGRES_DB: chat_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - chat-db-data:/var/lib/postgresql/data
+
+  message-db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: message_user
+      POSTGRES_PASSWORD: message_pass
+      POSTGRES_DB: message_db
+    ports:
+      - "5433:5432"
+    volumes:
+      - message-db-data:/var/lib/postgresql/data
+
+  # ─── Kafka (KRaft) ─────────────────────────────────────────────────────────
+  kafka:
+    image: bitnami/kafka:latest
+    environment:
+      KAFKA_ENABLE_KRAFT: yes
+      KAFKA_CFG_PROCESS_ROLES: broker,controller
+      KAFKA_CFG_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_CFG_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9093
+      KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      KAFKA_CFG_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092
+      KAFKA_BROKER_ID: 1
+      KAFKA_CFG_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_CFG_NODE_ID: 1
+      ALLOW_PLAINTEXT_LISTENER: yes
+    ports:
+      - "9092:9092"
+
+  # ─── Redis / Valkey ────────────────────────────────────────────────────────
+  valkey:
+    image: valkey/valkey:7.2-alpine
+    ports:
+      - "6379:6379"
+
+  # ─── MinIO (S3-compatible) ─────────────────────────────────────────────────
+  minio:
+    image: minio/minio:latest
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: minio
+      MINIO_ROOT_PASSWORD: minio123
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio-data:/data
+
+  # ─── Microservices ─────────────────────────────────────────────────────────
+  chat-service:
+    build:
+      context: ../chatService-main
+      dockerfile: ../messenger-infra/docker/chat-service/Dockerfile
+    environment:
+      PORT: "8080"
+      DATABASE_URL: "postgres://chat_user:chat_pass@chat-db:5432/chat_db?sslmode=disable"
+      KAFKA_BROKERS: "kafka:9092"
+      REDIS_ADDR: "valkey:6379"
+    ports:
+      - "8080:8080"
+    depends_on:
+      - chat-db
+      - kafka
+      - valkey
+
+  message-service:
+    build:
+      context: ../message_service-main
+      dockerfile: ../messenger-infra/docker/message-service/Dockerfile
+    environment:
+      DEBUG: "False"
+      POSTGRES_DB: message_db
+      POSTGRES_USER: message_user
+      POSTGRES_PASSWORD: message_pass
+      POSTGRES_HOST: message-db
+      POSTGRES_PORT: "5432"
+      KAFKA_BROKERS: "kafka:9092"
+      REDIS_URL: "redis://valkey:6379/0"
+      S3_ENDPOINT: "http://minio:9000"
+    ports:
+      - "8000:8000"
+    depends_on:
+      - message-db
+      - kafka
+      - valkey
+      - minio
+
+  realtime-gateway:
+    build:
+      context: ../realtime_service_deprecated-main
+      dockerfile: ../messenger-infra/docker/realtime-gateway/Dockerfile
+    environment:
+      PORT: "8082"
+      KAFKA_BROKERS: "kafka:9092"
+      REDIS_URL: "redis://valkey:6379/0"
+    ports:
+      - "8082:8082"
+    depends_on:
+      - kafka
+      - valkey
+
+volumes:
+  chat-db-data:
+  message-db-data:
+  minio-data:

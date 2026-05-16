@@ -1,0 +1,28 @@
+kafka:
+  replicaCount: 3
+  auth:
+    clientProtocol: sasl
+    interBrokerProtocol: sasl
+    sasl:
+      mechanisms: scram-sha-512
+      jaas:
+        clientUsers:
+          - messenger
+        clientPasswords:
+          - messenger-secret
+  kraft:
+    enabled: true
+  persistence:
+    enabled: true
+    size: 20Gi
+  metrics:
+    jmx:
+      enabled: true
+    kafka:
+      enabled: true
+  extraConfig: |
+    offsets.topic.replication.factor=3
+    transaction.state.log.replication.factor=3
+    transaction.state.log.min.isr=2
+    default.replication.factor=3
+    min.insync.replicas=2

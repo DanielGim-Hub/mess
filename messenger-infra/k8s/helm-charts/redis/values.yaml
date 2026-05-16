@@ -1,0 +1,17 @@
+valkey:
+  architecture: standalone
+  auth:
+    enabled: false
+  master:
+    persistence:
+      enabled: true
+      size: 8Gi
+    resources:
+      limits:
+        memory: 512Mi
+        cpu: 500m
+      requests:
+        memory: 128Mi
+        cpu: 100m
+  metrics:
+    enabled: true

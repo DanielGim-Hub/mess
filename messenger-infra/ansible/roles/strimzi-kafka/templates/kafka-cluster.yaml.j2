@@ -1,0 +1,49 @@
+apiVersion: kafka.strimzi.io/v1beta2
+kind: Kafka
+metadata:
+  name: {{ kafka_cluster_name }}
+  namespace: {{ strimzi_namespace }}
+spec:
+  kafka:
+    version: 3.8.0
+    replicas: {{ kafka_replicas }}
+    listeners:
+      - name: plain
+        port: 9092
+        type: internal
+        tls: false
+      - name: tls
+        port: 9093
+        type: internal
+        tls: true
+        authentication:
+          type: scram-sha-512
+    authorization:
+      type: simple
+    config:
+      offsets.topic.replication.factor: 3
+      transaction.state.log.replication.factor: 3
+      transaction.state.log.min.isr: 2
+      default.replication.factor: 3
+      min.insync.replicas: 2
+      num.partitions: 1
+      # KRaft mode settings
+      process.roles: broker,controller
+      node.count: {{ kafka_replicas }}
+      controller.quorum.voters: {% for i in range(kafka_replicas|int) %} {{ i+1 }}@{{ kafka_cluster_name }}-kafka-{{ i }}.{{ kafka_cluster_name }}-kafka-brokers.{{ strimzi_namespace }}.svc:9093{% if not loop.last %},{% endif %}{% endfor %}
+
+    storage:
+      type: persistent-claim
+      size: {{ kafka_storage_size }}
+      class: standard
+    metricsConfig:
+      type: jmxPrometheusExporter
+      valueFrom:
+        configMapKeyRef:
+          name: kafka-metrics
+          key: kafka-metrics-config.yml
+    # KRaft entity operator (no ZooKeeper)
+    rack: {}
+  entityOperator:
+    topicOperator: {}
+    userOperator: {}

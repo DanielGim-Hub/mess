@@ -1,0 +1,46 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: vmselect
+  namespace: observability
+  labels:
+    app: vmselect
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: vmselect
+  template:
+    metadata:
+      labels:
+        app: vmselect
+    spec:
+      containers:
+        - name: vmselect
+          image: victoriametrics/vmselect:v1.102.0-cluster
+          args:
+            - "--storageNode=vmstorage-0.vmstorage.observability.svc.cluster.local:8401"
+            - "--storageNode=vmstorage-1.vmstorage.observability.svc.cluster.local:8401"
+          ports:
+            - containerPort: 8481
+              name: http
+          resources:
+            limits:
+              memory: 512Mi
+              cpu: 500m
+            requests:
+              memory: 128Mi
+              cpu: 100m
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: vmselect
+  namespace: observability
+spec:
+  selector:
+    app: vmselect
+  ports:
+    - port: 8481
+      targetPort: 8481
+      name: http

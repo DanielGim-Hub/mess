@@ -1,0 +1,79 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gitlab-runner
+  namespace: gitlab-runners
+  labels:
+    app: gitlab-runner
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: gitlab-runner
+  template:
+    metadata:
+      labels:
+        app: gitlab-runner
+    spec:
+      serviceAccountName: gitlab-runner
+      containers:
+        - name: gitlab-runner
+          image: gitlab/gitlab-runner:alpine-v17.6.0
+          args: ["run", "--user=gitlab-runner", "--working-directory=/home/gitlab-runner"]
+          env:
+            - name: GITLAB_URL
+              value: "http://gitlab.local"
+            - name: REGISTRATION_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: gitlab-runner-secret
+                  key: token
+          volumeMounts:
+            - name: config
+              mountPath: /etc/gitlab-runner
+            - name: docker-sock
+              mountPath: /var/run/docker.sock
+          resources:
+            limits:
+              memory: 512Mi
+              cpu: 1000m
+            requests:
+              memory: 128Mi
+              cpu: 250m
+      volumes:
+        - name: config
+          emptyDir: {}
+        - name: docker-sock
+          hostPath:
+            path: /var/run/docker.sock
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: gitlab-runner
+  namespace: gitlab-runners
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: gitlab-runner
+rules:
+  - apiGroups: [""]
+    resources: ["pods", "pods/exec", "pods/log", "secrets", "configmaps"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  - apiGroups: ["apps"]
+    resources: ["deployments", "statefulsets"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: gitlab-runner
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: gitlab-runner
+subjects:
+  - kind: ServiceAccount
+    name: gitlab-runner
+    namespace: gitlab-runners

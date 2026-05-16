@@ -1,0 +1,46 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: vminsert
+  namespace: observability
+  labels:
+    app: vminsert
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: vminsert
+  template:
+    metadata:
+      labels:
+        app: vminsert
+    spec:
+      containers:
+        - name: vminsert
+          image: victoriametrics/vminsert:v1.102.0-cluster
+          args:
+            - "--storageNode=vmstorage-0.vmstorage.observability.svc.cluster.local:8400"
+            - "--storageNode=vmstorage-1.vmstorage.observability.svc.cluster.local:8400"
+          ports:
+            - containerPort: 8480
+              name: http
+          resources:
+            limits:
+              memory: 512Mi
+              cpu: 500m
+            requests:
+              memory: 128Mi
+              cpu: 100m
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: vminsert
+  namespace: observability
+spec:
+  selector:
+    app: vminsert
+  ports:
+    - port: 8480
+      targetPort: 8480
+      name: http

@@ -1,0 +1,65 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: chat-service
+  labels:
+    kubernetes.io/metadata.name: chat-service
+    istio-injection: enabled
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: message-service
+  labels:
+    kubernetes.io/metadata.name: message-service
+    istio-injection: enabled
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: realtime-gateway
+  labels:
+    kubernetes.io/metadata.name: realtime-gateway
+    istio-injection: enabled
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: kafka
+  labels:
+    kubernetes.io/metadata.name: kafka
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: redis
+  labels:
+    kubernetes.io/metadata.name: redis
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: observability
+  labels:
+    kubernetes.io/metadata.name: observability
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: argocd
+  labels:
+    kubernetes.io/metadata.name: argocd
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: istio-system
+  labels:
+    kubernetes.io/metadata.name: istio-system
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: gitlab-runners
+  labels:
+    kubernetes.io/metadata.name: gitlab-runners

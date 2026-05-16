@@ -1,0 +1,55 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: keepalived
+  namespace: istio-system
+  labels:
+    app: keepalived
+spec:
+  serviceName: keepalived
+  replicas: 2
+  selector:
+    matchLabels:
+      app: keepalived
+  template:
+    metadata:
+      labels:
+        app: keepalived
+    spec:
+      hostNetwork: true
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector:
+                matchLabels:
+                  app: keepalived
+              topologyKey: kubernetes.io/hostname
+      containers:
+        - name: keepalived
+          image: osixia/keepalived:2.0.20
+          securityContext:
+            capabilities:
+              add:
+                - NET_ADMIN
+                - NET_BROADCAST
+                - NET_RAW
+          env:
+            - name: KEEPALIVED_VIRTUAL_IPS
+              value: "192.168.1.200"
+            - name: KEEPALIVED_INTERFACE
+              value: "eth0"
+            - name: KEEPALIVED_PRIORITY
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.labels['apps.kubernetes.io/pod-index']
+            - name: KEEPALIVED_STATE
+              value: "BACKUP"
+            - name: KEEPALIVED_UNICAST_PEERS
+              value: "#PYTHON2BASH:['keepalived-0.istio-system.svc.cluster.local', 'keepalived-1.istio-system.svc.cluster.local']"
+          resources:
+            limits:
+              memory: 64Mi
+              cpu: 100m
+            requests:
+              memory: 32Mi
+              cpu: 50m

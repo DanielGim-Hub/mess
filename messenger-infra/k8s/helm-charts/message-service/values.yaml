@@ -1,0 +1,124 @@
+replicaCount: 3
+
+image:
+  repository: localhost:5000/message-service
+  pullPolicy: IfNotPresent
+  tag: "latest"
+
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+
+podAnnotations:
+  prometheus.io/scrape: "true"
+  prometheus.io/port: "8000"
+  prometheus.io/path: "/metrics"
+
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  fsGroup: 1000
+
+securityContext:
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+      - ALL
+  readOnlyRootFilesystem: false
+
+service:
+  type: ClusterIP
+  port: 8000
+  targetPort: 8000
+
+resources:
+  limits:
+    cpu: 1000m
+    memory: 1Gi
+  requests:
+    cpu: 500m
+    memory: 256Mi
+
+autoscaling:
+  enabled: true
+  minReplicas: 3
+  maxReplicas: 15
+  targetCPUUtilizationPercentage: 60
+  targetMemoryUtilizationPercentage: 70
+
+pdb:
+  enabled: true
+  minAvailable: 1
+
+networkPolicy:
+  enabled: true
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: message-service
+      ports:
+        - protocol: TCP
+          port: 5432
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kafka
+      ports:
+        - protocol: TCP
+          port: 9092
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: redis
+      ports:
+        - protocol: TCP
+          port: 6379
+
+env:
+  DEBUG: "False"
+  POSTGRES_DB: message_db
+  POSTGRES_USER: message_user
+  POSTGRES_PASSWORD: message_pass
+  POSTGRES_HOST: message-service-postgresql
+  POSTGRES_PORT: "5432"
+  KAFKA_BROKERS: "kafka:9092"
+  KAFKA_TOPIC_MESSAGE_CREATED: "message.created"
+  REDIS_URL: "redis://valkey:6379/0"
+  S3_ENDPOINT: "http://minio:9000"
+
+# Outbox Worker (StatefulSet для гарантии at-least-once)
+outboxWorker:
+  enabled: true
+  replicaCount: 1
+  resources:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 100m
+      memory: 128Mi
+
+# CronJob для архивации старых партиций
+archiveJob:
+  enabled: true
+  schedule: "0 2 1 * *"
+  resources:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 100m
+      memory: 128Mi
+
+postgresql:
+  enabled: true
+  auth:
+    username: message_user
+    password: message_pass
+    database: message_db
+  primary:
+    persistence:
+      enabled: true
+      size: 20Gi

@@ -1,0 +1,65 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+
+# Virtual env
+venv/
+.venv/
+env/
+ENV/
+
+# Environment variables
+.env
+.env.*
+!.env.example
+
+# Django
+*.log
+local_settings.py
+db.sqlite3
+
+# Static / media
+media/
+staticfiles/
+
+# Migrations 
+# */migrations/*
+# !*/migrations/__init__.py
+
+# IDE
+.vscode/
+.idea/
+*.iml
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+logs/
+*.log
+
+# Tests / coverage
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Type checking
+.mypy_cache/
+
+# Celery (если будете использовать)
+celerybeat-schedule
+
+# Docker
+*.pid
+*.sock
+
+# Build artifacts
+build/
+dist/
+*.egg-info/
+
+# Node (если есть фронт рядом)
+node_modules/

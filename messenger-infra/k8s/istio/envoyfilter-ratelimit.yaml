@@ -1,0 +1,91 @@
+apiVersion: networking.istio.io/v1alpha3
+kind: EnvoyFilter
+metadata:
+  name: filter-ratelimit
+  namespace: istio-system
+spec:
+  workloadSelector:
+    labels:
+      istio: ingressgateway
+  configPatches:
+    - applyTo: HTTP_FILTER
+      match:
+        context: GATEWAY
+        listener:
+          filterChain:
+            filter:
+              name: envoy.filters.network.http_connection_manager
+      patch:
+        operation: INSERT_BEFORE
+        value:
+          name: envoy.filters.http.ratelimit
+          typed_config:
+            "@type": type.googleapis.com/envoy.extensions.filters.http.ratelimit.v3.RateLimit
+            domain: messenger
+            failure_mode_deny: false
+            rate_limit_service:
+              grpc_service:
+                envoy_grpc:
+                  cluster_name: rate_limit_cluster
+                timeout: 1s
+              transport_api_version: V3
+            enable_x_ratelimit_headers: DRAFT_VERSION_03
+    - applyTo: CLUSTER
+      match:
+        cluster:
+          service: envoy-ratelimit.istio-system.svc.cluster.local
+      patch:
+        operation: ADD
+        value:
+          name: rate_limit_cluster
+          type: STRICT_DNS
+          connect_timeout: 1s
+          lb_policy: ROUND_ROBIN
+          load_assignment:
+            cluster_name: rate_limit_cluster
+            endpoints:
+              - lb_endpoints:
+                  - endpoint:
+                      address:
+                        socket_address:
+                          address: envoy-ratelimit.istio-system.svc.cluster.local
+                          port_value: 8081
+          typed_extension_protocol_options:
+            envoy.extensions.upstreams.http.v3.HttpProtocolOptions:
+              "@type": type.googleapis.com/envoy.extensions.upstreams.http.v3.HttpProtocolOptions
+              upstream_protocol_options:
+                explicit_http_config:
+                  http2_protocol_options: {}
+---
+# Rate limit actions per route
+apiVersion: networking.istio.io/v1alpha3
+kind: EnvoyFilter
+metadata:
+  name: filter-ratelimit-actions
+  namespace: istio-system
+spec:
+  workloadSelector:
+    labels:
+      istio: ingressgateway
+  configPatches:
+    - applyTo: VIRTUAL_HOST
+      match:
+        context: GATEWAY
+        routeConfiguration:
+          vhost:
+            name: ""
+      patch:
+        operation: MERGE
+        value:
+          rate_limits:
+            - actions:
+                - request_headers:
+                    header_name: x-user-id
+                    descriptor_key: user_id
+            - actions:
+                - request_headers:
+                    header_name: x-chat-id
+                    descriptor_key: chat_id
+            - actions:
+                - remote_address: {}
+                  descriptor_key: remote_address

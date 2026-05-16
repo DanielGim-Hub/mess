@@ -1,0 +1,37 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: haproxy
+  namespace: istio-system
+  labels:
+    app: haproxy
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: haproxy
+  template:
+    metadata:
+      labels:
+        app: haproxy
+    spec:
+      hostNetwork: true
+      containers:
+        - name: haproxy
+          image: haproxy:2.9-alpine
+          ports:
+            - containerPort: 443
+              name: https
+            - containerPort: 8443
+              name: wss
+          volumeMounts:
+            - name: config
+              mountPath: /usr/local/etc/haproxy
+          resources:
+            limits:
+              memory: 256Mi
+              cpu: 500m
+      volumes:
+        - name: config
+          configMap:
+            name: haproxy-config

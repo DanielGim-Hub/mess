@@ -1,0 +1,65 @@
+apiVersion: networking.istio.io/v1beta1
+kind: Gateway
+metadata:
+  name: messenger-gateway
+  namespace: istio-system
+spec:
+  selector:
+    istio: ingressgateway
+  servers:
+    - port:
+        number: 443
+        name: https
+        protocol: HTTPS
+      tls:
+        mode: SIMPLE
+        credentialName: messenger-tls-secret
+      hosts:
+        - "api.messenger.local"
+        - "ws.messenger.local"
+    - port:
+        number: 8443
+        name: wss
+        protocol: HTTPS
+      tls:
+        mode: SIMPLE
+        credentialName: messenger-tls-secret
+      hosts:
+        - "ws.messenger.local"
+---
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: messenger-routes
+  namespace: istio-system
+spec:
+  hosts:
+    - "api.messenger.local"
+    - "ws.messenger.local"
+  gateways:
+    - messenger-gateway
+  http:
+    - match:
+        - uri:
+            prefix: /api/v1/chats
+      route:
+        - destination:
+            host: chat-service.chat-service.svc.cluster.local
+            port:
+              number: 8080
+    - match:
+        - uri:
+            prefix: /api/v1/messages
+      route:
+        - destination:
+            host: message-service.message-service.svc.cluster.local
+            port:
+              number: 8000
+    - match:
+        - uri:
+            prefix: /ws
+      route:
+        - destination:
+            host: realtime-gateway.realtime-gateway.svc.cluster.local
+            port:
+              number: 8082

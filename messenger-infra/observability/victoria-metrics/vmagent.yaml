@@ -1,0 +1,66 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: vmagent
+  namespace: observability
+  labels:
+    app: vmagent
+spec:
+  selector:
+    matchLabels:
+      app: vmagent
+  template:
+    metadata:
+      labels:
+        app: vmagent
+    spec:
+      containers:
+        - name: vmagent
+          image: victoriametrics/vmagent:v1.102.0
+          args:
+            - "-promscrape.config=/etc/vmagent/scrape.yml"
+            - "-remoteWrite.url=http://vminsert.observability.svc.cluster.local:8480/insert/0/prometheus/api/v1/write"
+          ports:
+            - containerPort: 8429
+              name: http
+          volumeMounts:
+            - name: config
+              mountPath: /etc/vmagent
+          resources:
+            limits:
+              memory: 256Mi
+              cpu: 500m
+            requests:
+              memory: 64Mi
+              cpu: 100m
+      volumes:
+        - name: config
+          configMap:
+            name: vmagent-config
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: vmagent-config
+  namespace: observability
+data:
+  scrape.yml: |
+    global:
+      scrape_interval: 15s
+    scrape_configs:
+      - job_name: 'kubernetes-pods'
+        kubernetes_sd_configs:
+          - role: pod
+        relabel_configs:
+          - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_scrape]
+            action: keep
+            regex: true
+          - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_path]
+            action: replace
+            target_label: __metrics_path__
+            regex: (.+)
+          - source_labels: [__address__, __meta_kubernetes_pod_annotation_prometheus_io_port]
+            action: replace
+            regex: ([^:]+)(?::\d+)?;(\d+)
+            replacement: $1:$2
+            target_label: __address__

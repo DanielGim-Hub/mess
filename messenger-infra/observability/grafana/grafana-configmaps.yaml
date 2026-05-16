@@ -1,0 +1,217 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-datasources
+  namespace: observability
+data:
+  datasources.yaml: |
+    apiVersion: 1
+    datasources:
+      - name: VictoriaMetrics
+        type: prometheus
+        access: proxy
+        url: http://vmselect.observability.svc.cluster.local:8481/select/0/prometheus
+        isDefault: true
+        editable: false
+      - name: VictoriaLogs
+        type: loki
+        access: proxy
+        url: http://victoria-logs.observability.svc.cluster.local:9428
+        editable: false
+      - name: Jaeger
+        type: jaeger
+        access: proxy
+        url: http://jaeger.observability.svc.cluster.local:16686
+        editable: false
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-dashboards-provision
+  namespace: observability
+data:
+  dashboards.yaml: |
+    apiVersion: 1
+    providers:
+      - name: 'default'
+        orgId: 1
+        folder: ''
+        type: file
+        disableDeletion: false
+        editable: true
+        options:
+          path: /var/lib/grafana/dashboards
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-dashboard-definitions
+  namespace: observability
+data:
+  messenger-golden-signals.json: |
+    {
+      "dashboard": {
+        "id": null,
+        "title": "Messenger Golden Signals",
+        "tags": ["messenger", "golden-signals"],
+        "timezone": "utc",
+        "schemaVersion": 36,
+        "refresh": "10s",
+        "panels": [
+          {
+            "id": 1,
+            "title": "Latency p95",
+            "type": "stat",
+            "targets": [
+              {
+                "expr": "histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[5m]))",
+                "legendFormat": "{{service}}"
+              }
+            ],
+            "gridPos": {"h": 8, "w": 8, "x": 0, "y": 0}
+          },
+          {
+            "id": 2,
+            "title": "RPS",
+            "type": "stat",
+            "targets": [
+              {
+                "expr": "rate(http_requests_total[5m])",
+                "legendFormat": "{{service}}"
+              }
+            ],
+            "gridPos": {"h": 8, "w": 8, "x": 8, "y": 0}
+          },
+          {
+            "id": 3,
+            "title": "Errors 5xx %",
+            "type": "stat",
+            "targets": [
+              {
+                "expr": "rate(http_requests_total{status=~\"5..\"}[5m]) / rate(http_requests_total[5m])",
+                "legendFormat": "{{service}}"
+              }
+            ],
+            "gridPos": {"h": 8, "w": 8, "x": 16, "y": 0}
+          },
+          {
+            "id": 4,
+            "title": "Active WS Connections",
+            "type": "timeseries",
+            "targets": [
+              {
+                "expr": "active_websocket_connections",
+                "legendFormat": "Realtime Gateway"
+              }
+            ],
+            "gridPos": {"h": 8, "w": 12, "x": 0, "y": 8}
+          },
+          {
+            "id": 5,
+            "title": "Saturation (CPU/Memory)",
+            "type": "timeseries",
+            "targets": [
+              {
+                "expr": "container_cpu_usage_seconds_total",
+                "legendFormat": "CPU {{pod}}"
+              },
+              {
+                "expr": "container_memory_working_set_bytes",
+                "legendFormat": "Memory {{pod}}"
+              }
+            ],
+            "gridPos": {"h": 8, "w": 12, "x": 12, "y": 8}
+          }
+        ]
+      }
+    }
+  kafka-overview.json: |
+    {
+      "dashboard": {
+        "id": null,
+        "title": "Kafka Overview",
+        "tags": ["messenger", "kafka"],
+        "timezone": "utc",
+        "schemaVersion": 36,
+        "refresh": "10s",
+        "panels": [
+          {
+            "id": 1,
+            "title": "Consumer Lag",
+            "type": "timeseries",
+            "targets": [
+              {
+                "expr": "kafka_consumer_group_lag",
+                "legendFormat": "{{topic}} / {{group}}"
+              }
+            ],
+            "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0}
+          },
+          {
+            "id": 2,
+            "title": "Partition Lag",
+            "type": "timeseries",
+            "targets": [
+              {
+                "expr": "kafka_consumergroup_lag",
+                "legendFormat": "{{topic}}-{{partition}}"
+              }
+            ],
+            "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0}
+          },
+          {
+            "id": 3,
+            "title": "Throughput (msg/s)",
+            "type": "timeseries",
+            "targets": [
+              {
+                "expr": "rate(kafka_server_brokertopicmetrics_messagesin_total[5m])",
+                "legendFormat": "{{topic}}"
+              }
+            ],
+            "gridPos": {"h": 8, "w": 24, "x": 0, "y": 8}
+          }
+        ]
+      }
+    }
+  rate-limiter.json: |
+    {
+      "dashboard": {
+        "id": null,
+        "title": "Rate Limiter",
+        "tags": ["messenger", "rate-limit"],
+        "timezone": "utc",
+        "schemaVersion": 36,
+        "refresh": "10s",
+        "panels": [
+          {
+            "id": 1,
+            "title": "429 Responses",
+            "type": "timeseries",
+            "targets": [
+              {
+                "expr": "rate(envoy_ratelimit_http_local_rate_limit_enforced[5m])",
+                "legendFormat": "Local RL"
+              },
+              {
+                "expr": "rate(envoy_cluster_ratelimit_over_limit[5m])",
+                "legendFormat": "Global RL"
+              }
+            ],
+            "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0}
+          },
+          {
+            "id": 2,
+            "title": "Current Bucket Fill (per user)",
+            "type": "timeseries",
+            "targets": [
+              {
+                "expr": "envoy_ratelimit_http_local_rate_limit_bucket",
+                "legendFormat": "{{user_id}}"
+              }
+            ],
+            "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0}
+          }
+        ]
+      }
+    }

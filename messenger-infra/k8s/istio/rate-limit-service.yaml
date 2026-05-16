@@ -1,0 +1,91 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: rate-limit-config
+  namespace: istio-system
+data:
+  config.yaml: |
+    domain: messenger
+    descriptors:
+      - key: user_id
+        value: "*"
+        rate_limit:
+          unit: minute
+          requests_per_unit: 100
+      - key: chat_id
+        value: "*"
+        rate_limit:
+          unit: minute
+          requests_per_unit: 50
+      - key: remote_address
+        value: "*"
+        rate_limit:
+          unit: minute
+          requests_per_unit: 20
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: envoy-ratelimit
+  namespace: istio-system
+  labels:
+    app: envoy-ratelimit
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: envoy-ratelimit
+  template:
+    metadata:
+      labels:
+        app: envoy-ratelimit
+    spec:
+      containers:
+        - name: ratelimit
+          image: envoyproxy/ratelimit:v1.7.0
+          ports:
+            - containerPort: 8080
+              name: http
+            - containerPort: 8081
+              name: grpc
+          env:
+            - name: LOG_LEVEL
+              value: debug
+            - name: REDIS_URL
+              value: valkey.redis.svc.cluster.local:6379
+            - name: RUNTIME_ROOT
+              value: /data
+            - name: RUNTIME_SUBDIRECTORY
+              value: ratelimit
+            - name: RUNTIME_WATCH_ROOT
+              value: "false"
+            - name: LIMIT_NAME
+              value: messenger
+          volumeMounts:
+            - name: config
+              mountPath: /data/ratelimit/config
+          resources:
+            limits:
+              memory: 256Mi
+              cpu: 500m
+            requests:
+              memory: 64Mi
+              cpu: 100m
+      volumes:
+        - name: config
+          configMap:
+            name: rate-limit-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: envoy-ratelimit
+  namespace: istio-system
+spec:
+  selector:
+    app: envoy-ratelimit
+  ports:
+    - port: 8080
+      name: http
+    - port: 8081
+      name: grpc

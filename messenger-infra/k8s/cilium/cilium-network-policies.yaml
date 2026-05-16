@@ -1,0 +1,157 @@
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: chat-service-l7
+  namespace: chat-service
+spec:
+  endpointSelector:
+    matchLabels:
+      app.kubernetes.io/name: chat-service
+  ingress:
+    - fromEndpoints:
+        - matchLabels:
+            io.kubernetes.pod.namespace: istio-system
+            istio: ingressgateway
+      toPorts:
+        - ports:
+            - port: "8080"
+              protocol: TCP
+          rules:
+            http:
+              - method: "GET"
+                path: "/api/v1/.*"
+              - method: "POST"
+                path: "/api/v1/.*"
+              - method: "PATCH"
+                path: "/api/v1/.*"
+              - method: "DELETE"
+                path: "/api/v1/.*"
+              - method: "GET"
+                path: "/health/.*"
+              - method: "GET"
+                path: "/metrics"
+    - fromEndpoints:
+        - matchLabels:
+            io.kubernetes.pod.namespace: message-service
+    - fromEndpoints:
+        - matchLabels:
+            io.kubernetes.pod.namespace: realtime-gateway
+  egress:
+    - toEndpoints:
+        - matchLabels:
+            io.kubernetes.pod.namespace: kafka
+      toPorts:
+        - ports:
+            - port: "9092"
+              protocol: TCP
+    - toEndpoints:
+        - matchLabels:
+            io.kubernetes.pod.namespace: redis
+      toPorts:
+        - ports:
+            - port: "6379"
+              protocol: TCP
+---
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: message-service-l7
+  namespace: message-service
+spec:
+  endpointSelector:
+    matchLabels:
+      app.kubernetes.io/name: message-service
+  ingress:
+    - fromEndpoints:
+        - matchLabels:
+            io.kubernetes.pod.namespace: istio-system
+            istio: ingressgateway
+      toPorts:
+        - ports:
+            - port: "8000"
+              protocol: TCP
+          rules:
+            http:
+              - method: "GET"
+                path: "/api/v1/.*"
+              - method: "POST"
+                path: "/api/v1/.*"
+              - method: "PATCH"
+                path: "/api/v1/.*"
+              - method: "DELETE"
+                path: "/api/v1/.*"
+              - method: "GET"
+                path: "/health/.*"
+              - method: "GET"
+                path: "/api/schema/.*"
+              - method: "GET"
+                path: "/api/docs/.*"
+    - fromEndpoints:
+        - matchLabels:
+            io.kubernetes.pod.namespace: chat-service
+    - fromEndpoints:
+        - matchLabels:
+            io.kubernetes.pod.namespace: realtime-gateway
+  egress:
+    - toEndpoints:
+        - matchLabels:
+            io.kubernetes.pod.namespace: kafka
+      toPorts:
+        - ports:
+            - port: "9092"
+              protocol: TCP
+    - toEndpoints:
+        - matchLabels:
+            io.kubernetes.pod.namespace: redis
+      toPorts:
+        - ports:
+            - port: "6379"
+              protocol: TCP
+---
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: realtime-gateway-l7
+  namespace: realtime-gateway
+spec:
+  endpointSelector:
+    matchLabels:
+      app.kubernetes.io/name: realtime-gateway
+  ingress:
+    - fromEndpoints:
+        - matchLabels:
+            io.kubernetes.pod.namespace: istio-system
+            istio: ingressgateway
+      toPorts:
+        - ports:
+            - port: "8082"
+              protocol: TCP
+          rules:
+            http:
+              - method: "GET"
+                path: "/ws"
+              - method: "GET"
+                path: "/health/.*"
+              - method: "GET"
+                path: "/metrics"
+    - fromEndpoints:
+        - matchLabels:
+            io.kubernetes.pod.namespace: chat-service
+    - fromEndpoints:
+        - matchLabels:
+            io.kubernetes.pod.namespace: message-service
+  egress:
+    - toEndpoints:
+        - matchLabels:
+            io.kubernetes.pod.namespace: kafka
+      toPorts:
+        - ports:
+            - port: "9092"
+              protocol: TCP
+    - toEndpoints:
+        - matchLabels:
+            io.kubernetes.pod.namespace: redis
+      toPorts:
+        - ports:
+            - port: "6379"
+              protocol: TCP

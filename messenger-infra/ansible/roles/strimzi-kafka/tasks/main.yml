@@ -1,0 +1,62 @@
+---
+- name: Ensure Kafka namespace exists
+  kubernetes.core.k8s:
+    name: "{{ strimzi_namespace }}"
+    api_version: v1
+    kind: Namespace
+    state: present
+
+- name: Install Strimzi Kafka Operator
+  kubernetes.core.k8s:
+    state: present
+    definition: "{{ lookup('url', 'https://github.com/strimzi/strimzi-kafka-operator/releases/download/{{ strimzi_version }}/strimzi-cluster-operator-{{ strimzi_version }}.yaml', split_lines=False) }}"
+    namespace: "{{ strimzi_namespace }}"
+
+- name: Wait for Strimzi operator deployment
+  kubernetes.core.k8s_info:
+    api_version: apps/v1
+    kind: Deployment
+    name: strimzi-cluster-operator
+    namespace: "{{ strimzi_namespace }}"
+  register: strimzi_deployment
+  until: strimzi_deployment.resources | length > 0 and strimzi_deployment.resources[0].status.readyReplicas | default(0) > 0
+  retries: 20
+  delay: 15
+
+- name: Create Kafka metrics ConfigMap
+  kubernetes.core.k8s:
+    state: present
+    template: 'kafka-metrics-configmap.yaml.j2'
+    namespace: "{{ strimzi_namespace }}"
+
+- name: Deploy Kafka cluster (KRaft mode)
+  kubernetes.core.k8s:
+    state: present
+    template: 'kafka-cluster.yaml.j2'
+    namespace: "{{ strimzi_namespace }}"
+
+- name: Wait for Kafka cluster readiness
+  kubernetes.core.k8s_info:
+    api_version: kafka.strimzi.io/v1beta2
+    kind: Kafka
+    name: "{{ kafka_cluster_name }}"
+    namespace: "{{ strimzi_namespace }}"
+  register: kafka_cr
+  until: kafka_cr.resources | length > 0 and kafka_cr.resources[0].status.conditions | selectattr('type', 'equalto', 'Ready') | map(attribute='status') | list | first | default('False') == 'True'
+  retries: 30
+  delay: 20
+
+- name: Create Kafka topics
+  kubernetes.core.k8s:
+    state: present
+    template: 'kafka-topic.yaml.j2'
+    namespace: "{{ strimzi_namespace }}"
+  loop: "{{ kafka_topics }}"
+  loop_control:
+    loop_var: topic
+
+- name: Create Kafka user (SASL/SCRAM)
+  kubernetes.core.k8s:
+    state: present
+    template: 'kafka-user.yaml.j2'
+    namespace: "{{ strimzi_namespace }}"

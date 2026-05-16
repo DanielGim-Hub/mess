@@ -1,0 +1,16 @@
+apiVersion: operator.victoriametrics.com/v1beta1
+kind: VMServiceScrape
+metadata:
+  name: chat-service
+  namespace: observability
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: chat-service
+  namespaceSelector:
+    matchNames:
+      - chat-service
+  endpoints:
+    - port: http
+      path: /metrics
+      interval: 15s

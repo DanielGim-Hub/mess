@@ -1,0 +1,10 @@
+apiVersion: v2
+name: kafka
+description: Helm chart for Kafka (Bitnami) for local messenger deployment
+type: application
+version: 1.0.0
+appVersion: "3.8.0"
+dependencies:
+  - name: kafka
+    version: 31.x.x
+    repository: https://charts.bitnami.com/bitnami

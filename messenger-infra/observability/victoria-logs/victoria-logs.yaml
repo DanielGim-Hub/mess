@@ -1,0 +1,58 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: victoria-logs
+  namespace: observability
+  labels:
+    app: victoria-logs
+spec:
+  serviceName: victoria-logs
+  replicas: 1
+  selector:
+    matchLabels:
+      app: victoria-logs
+  template:
+    metadata:
+      labels:
+        app: victoria-logs
+    spec:
+      containers:
+        - name: victoria-logs
+          image: victoriametrics/victoria-logs:v1.0.0-victorialogs
+          args:
+            - "--storageDataPath=/storage"
+            - "--httpListenAddr=:9428"
+          ports:
+            - containerPort: 9428
+              name: http
+          volumeMounts:
+            - name: storage
+              mountPath: /storage
+          resources:
+            limits:
+              memory: 1Gi
+              cpu: 1000m
+            requests:
+              memory: 256Mi
+              cpu: 250m
+  volumeClaimTemplates:
+    - metadata:
+        name: storage
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 50Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: victoria-logs
+  namespace: observability
+spec:
+  selector:
+    app: victoria-logs
+  ports:
+    - port: 9428
+      targetPort: 9428
+      name: http

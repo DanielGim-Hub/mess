@@ -1,0 +1,11 @@
+apiVersion: v2
+name: message-service
+description: Helm chart for Message Service (Python/Django + PostgreSQL + Kafka + S3)
+type: application
+version: 1.0.0
+appVersion: "1.0.0"
+dependencies:
+  - name: postgresql
+    version: 16.x.x
+    repository: https://charts.bitnami.com/bitnami
+    condition: postgresql.enabled

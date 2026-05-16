@@ -1,0 +1,40 @@
+{
+  "dashboard": {
+    "id": null,
+    "title": "Rate Limiter",
+    "tags": ["messenger", "rate-limit"],
+    "timezone": "utc",
+    "schemaVersion": 36,
+    "refresh": "10s",
+    "panels": [
+      {
+        "id": 1,
+        "title": "429 Responses",
+        "type": "timeseries",
+        "targets": [
+          {
+            "expr": "rate(envoy_ratelimit_http_local_rate_limit_enforced[5m])",
+            "legendFormat": "Local RL"
+          },
+          {
+            "expr": "rate(envoy_cluster_ratelimit_over_limit[5m])",
+            "legendFormat": "Global RL"
+          }
+        ],
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0}
+      },
+      {
+        "id": 2,
+        "title": "Current Bucket Fill (per user)",
+        "type": "timeseries",
+        "targets": [
+          {
+            "expr": "envoy_ratelimit_http_local_rate_limit_bucket",
+            "legendFormat": "{{user_id}}"
+          }
+        ],
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0}
+      }
+    ]
+  }
+}

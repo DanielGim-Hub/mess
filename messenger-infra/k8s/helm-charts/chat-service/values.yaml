@@ -1,0 +1,99 @@
+replicaCount: 2
+
+image:
+  repository: localhost:5000/chat-service
+  pullPolicy: IfNotPresent
+  tag: "latest"
+
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+
+podAnnotations:
+  prometheus.io/scrape: "true"
+  prometheus.io/port: "8080"
+  prometheus.io/path: "/metrics"
+
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 65534
+  fsGroup: 65534
+
+securityContext:
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+      - ALL
+  readOnlyRootFilesystem: true
+
+service:
+  type: ClusterIP
+  port: 8080
+  targetPort: 8080
+
+resources:
+  limits:
+    cpu: 1000m
+    memory: 512Mi
+  requests:
+    cpu: 250m
+    memory: 128Mi
+
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 60
+  targetMemoryUtilizationPercentage: 70
+
+pdb:
+  enabled: true
+  minAvailable: 1
+
+networkPolicy:
+  enabled: true
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: chat-service
+      ports:
+        - protocol: TCP
+          port: 5432
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kafka
+      ports:
+        - protocol: TCP
+          port: 9092
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: redis
+      ports:
+        - protocol: TCP
+          port: 6379
+
+env:
+  ENV: production
+  PORT: "8080"
+  LOG_LEVEL: info
+  DATABASE_URL: "postgres://chat_user:chat_pass@chat-service-postgresql:5432/chat_db?sslmode=disable"
+  KAFKA_BROKERS: "kafka:9092"
+  KAFKA_TOPIC_CHAT_EVENTS: "chat.events"
+  KAFKA_TOPIC_MESSAGE_CREATED: "message.created"
+  KAFKA_CONSUMER_GROUP: "chat-service.message.created"
+  REDIS_ADDR: "valkey:6379"
+
+postgresql:
+  enabled: true
+  auth:
+    username: chat_user
+    password: chat_pass
+    database: chat_db
+  primary:
+    persistence:
+      enabled: true
+      size: 10Gi

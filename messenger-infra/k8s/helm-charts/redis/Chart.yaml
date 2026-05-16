@@ -1,0 +1,10 @@
+apiVersion: v2
+name: redis
+description: Helm chart for Redis/Valkey (Bitnami) for messenger cache and sessions
+type: application
+version: 1.0.0
+appVersion: "7.2"
+dependencies:
+  - name: valkey
+    version: 2.x.x
+    repository: https://charts.bitnami.com/bitnami

@@ -1,0 +1,16 @@
+apiVersion: operator.victoriametrics.com/v1beta1
+kind: VMServiceScrape
+metadata:
+  name: realtime-gateway
+  namespace: observability
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: realtime-gateway
+  namespaceSelector:
+    matchNames:
+      - realtime-gateway
+  endpoints:
+    - port: ws
+      path: /metrics
+      interval: 15s

@@ -1,0 +1,86 @@
+stages:
+  - build
+  - push
+  - update-helm
+  - sync-argocd
+
+variables:
+  DOCKER_REGISTRY: "localhost:5000"
+  KANIKO_IMAGE: "gcr.io/kaniko-project/executor:debug"
+
+# ─── Build Chat Service ─────────────────────────────────────────────────────
+build:chat-service:
+  stage: build
+  image: $KANIKO_IMAGE
+  script:
+    - mkdir -p /kaniko/.docker
+    - echo '{"insecure-registries":["'$DOCKER_REGISTRY'"]}' > /kaniko/.docker/config.json
+    - /kaniko/executor
+      --context $CI_PROJECT_DIR/chatService-main
+      --dockerfile $CI_PROJECT_DIR/messenger-infra/docker/chat-service/Dockerfile
+      --destination $DOCKER_REGISTRY/chat-service:$CI_COMMIT_SHORT_SHA
+      --destination $DOCKER_REGISTRY/chat-service:latest
+      --cache=true
+  only:
+    changes:
+      - chatService-main/**/*
+
+# ─── Build Message Service ──────────────────────────────────────────────────
+build:message-service:
+  stage: build
+  image: $KANIKO_IMAGE
+  script:
+    - mkdir -p /kaniko/.docker
+    - echo '{"insecure-registries":["'$DOCKER_REGISTRY'"]}' > /kaniko/.docker/config.json
+    - /kaniko/executor
+      --context $CI_PROJECT_DIR/message_service-main
+      --dockerfile $CI_PROJECT_DIR/messenger-infra/docker/message-service/Dockerfile
+      --destination $DOCKER_REGISTRY/message-service:$CI_COMMIT_SHORT_SHA
+      --destination $DOCKER_REGISTRY/message-service:latest
+      --cache=true
+  only:
+    changes:
+      - message_service-main/**/*
+
+# ─── Build Realtime Gateway ─────────────────────────────────────────────────
+build:realtime-gateway:
+  stage: build
+  image: $KANIKO_IMAGE
+  script:
+    - mkdir -p /kaniko/.docker
+    - echo '{"insecure-registries":["'$DOCKER_REGISTRY'"]}' > /kaniko/.docker/config.json
+    - /kaniko/executor
+      --context $CI_PROJECT_DIR/realtime_service_deprecated-main
+      --dockerfile $CI_PROJECT_DIR/messenger-infra/docker/realtime-gateway/Dockerfile
+      --destination $DOCKER_REGISTRY/realtime-gateway:$CI_COMMIT_SHORT_SHA
+      --destination $DOCKER_REGISTRY/realtime-gateway:latest
+      --cache=true
+  only:
+    changes:
+      - realtime_service_deprecated-main/**/*
+
+# ─── Update Helm Charts ─────────────────────────────────────────────────────
+update:helm:
+  stage: update-helm
+  image: alpine/helm:3.16.3
+  script:
+    - apk add --no-cache git
+    - git config --global user.email "ci@messenger.local"
+    - git config --global user.name "CI Bot"
+    - sed -i "s/tag: \"latest\"/tag: \"$CI_COMMIT_SHORT_SHA\"/g" messenger-infra/k8s/helm-charts/chat-service/values.yaml
+    - sed -i "s/tag: \"latest\"/tag: \"$CI_COMMIT_SHORT_SHA\"/g" messenger-infra/k8s/helm-charts/message-service/values.yaml
+    - sed -i "s/tag: \"latest\"/tag: \"$CI_COMMIT_SHORT_SHA\"/g" messenger-infra/k8s/helm-charts/realtime-gateway/values.yaml
+    - git add messenger-infra/k8s/helm-charts/
+    - git commit -m "ci: update image tags to $CI_COMMIT_SHORT_SHA" || true
+    - git push origin HEAD:$CI_COMMIT_BRANCH
+  only:
+    - main
+
+# ─── ArgoCD Sync ────────────────────────────────────────────────────────────
+sync:argocd:
+  stage: sync-argocd
+  image: bitnami/kubectl:1.31
+  script:
+    - kubectl patch app messenger-root -n argocd --type merge -p '{"operation":{"sync":{"revision":"HEAD"}}}'
+  only:
+    - main

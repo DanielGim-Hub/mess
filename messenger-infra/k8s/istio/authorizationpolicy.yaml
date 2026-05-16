@@ -1,0 +1,115 @@
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: chat-service-authz
+  namespace: chat-service
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: chat-service
+  action: ALLOW
+  rules:
+    - from:
+        - source:
+            principals: ["cluster.local/ns/istio-system/sa/istio-ingressgateway-service-account"]
+      to:
+        - operation:
+            methods: ["GET", "POST", "PATCH", "DELETE"]
+            paths: ["/api/v1/*", "/health/*", "/metrics"]
+    - from:
+        - source:
+            principals: ["cluster.local/ns/message-service/sa/message-service"]
+      to:
+        - operation:
+            methods: ["GET"]
+            paths: ["/api/v1/internal/*"]
+    - from:
+        - source:
+            principals: ["cluster.local/ns/realtime-gateway/sa/realtime-gateway"]
+      to:
+        - operation:
+            methods: ["GET"]
+            paths: ["/api/v1/internal/*"]
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: message-service-authz
+  namespace: message-service
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: message-service
+  action: ALLOW
+  rules:
+    - from:
+        - source:
+            principals: ["cluster.local/ns/istio-system/sa/istio-ingressgateway-service-account"]
+      to:
+        - operation:
+            methods: ["GET", "POST", "PATCH", "DELETE"]
+            paths: ["/api/v1/*", "/health/*", "/api/schema/*", "/api/docs/*"]
+    - from:
+        - source:
+            principals: ["cluster.local/ns/chat-service/sa/chat-service"]
+      to:
+        - operation:
+            methods: ["GET"]
+            paths: ["/api/v1/internal/*"]
+    - from:
+        - source:
+            principals: ["cluster.local/ns/realtime-gateway/sa/realtime-gateway"]
+      to:
+        - operation:
+            methods: ["GET", "POST"]
+            paths: ["/api/v1/*"]
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: realtime-gateway-authz
+  namespace: realtime-gateway
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: realtime-gateway
+  action: ALLOW
+  rules:
+    - from:
+        - source:
+            principals: ["cluster.local/ns/istio-system/sa/istio-ingressgateway-service-account"]
+      to:
+        - operation:
+            methods: ["GET"]
+            paths: ["/ws", "/health/*", "/metrics"]
+    - from:
+        - source:
+            namespaces: ["kafka", "redis"]
+      to:
+        - operation:
+            methods: ["*"]
+---
+# Default deny for service namespaces
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: default-deny
+  namespace: chat-service
+spec:
+  {}
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: default-deny
+  namespace: message-service
+spec:
+  {}
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: default-deny
+  namespace: realtime-gateway
+spec:
+  {}
