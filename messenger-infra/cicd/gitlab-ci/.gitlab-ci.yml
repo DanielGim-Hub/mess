@@ -79,7 +79,7 @@ update:helm:
 # ─── ArgoCD Sync ────────────────────────────────────────────────────────────
 sync:argocd:
   stage: sync-argocd
-  image: bitnami/kubectl:1.31
+  image: soldevelo/kubectl:1.31
   script:
     - kubectl patch app messenger-root -n argocd --type merge -p '{"operation":{"sync":{"revision":"HEAD"}}}'
   only:
